@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-orders
+  namespace: ecommerce-demo
+  labels:
+    app: service-orders
+    cost-center: digital-storefront
+    environment: staging
+    app.kubernetes.io/part-of: ecommerce
+    app.kubernetes.io/name: service-orders
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-orders
+  template:
+    metadata:
+      labels:
+        app: service-orders
+        cost-center: digital-storefront
+        environment: staging
+        app.kubernetes.io/part-of: ecommerce
+        app.kubernetes.io/name: service-orders
+        app.kubernetes.io/version: "1.0.0"
+    spec:
+      containers:
+        - name: service-orders
+          image: uniquenameregistry1.azurecr.io/service-orders:v1.0.0
+          ports:
+            - containerPort: 8080
+          # Tight requests — high utilization under load
+          # Kubecost will show GOOD efficiency for this service
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-orders
+  namespace: ecommerce-demo
+  labels:
+    app: service-orders
+    cost-center: digital-storefront
+    environment: staging
+    app.kubernetes.io/part-of: ecommerce
+spec:
+  type: ClusterIP
+  selector:
+    app: service-orders
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP

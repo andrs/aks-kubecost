@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-payments
+  namespace: ecommerce-demo
+  labels:
+    app: service-payments
+    cost-center: digital-storefront
+    environment: staging
+    app.kubernetes.io/part-of: ecommerce
+    app.kubernetes.io/name: service-payments
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-payments
+  template:
+    metadata:
+      labels:
+        app: service-payments
+        cost-center: digital-storefront
+        environment: staging
+        app.kubernetes.io/part-of: ecommerce
+        app.kubernetes.io/name: service-payments
+        app.kubernetes.io/version: "1.0.0"
+    spec:
+      containers:
+        - name: service-payments
+          image: uniquenameregistry1.azurecr.io/service-payments:v1.0.0
+          ports:
+            - containerPort: 8080
+          # DELIBERATELY OVERPROVISIONED relative to actual usage — near-zero baseline load.
+          # Even at 50m/64Mi requests, this service uses <1m CPU and <20Mi RAM at idle,
+          # so Kubecost will flag LOW efficiency and recommend right-sizing.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-payments
+  namespace: ecommerce-demo
+  labels:
+    app: service-payments
+    cost-center: digital-storefront
+    environment: staging
+    app.kubernetes.io/part-of: ecommerce
+spec:
+  type: ClusterIP
+  selector:
+    app: service-payments
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
