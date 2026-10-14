@@ -43,10 +43,10 @@ graph TB
         CMS --> SA
     end
 
-    subgraph AKS Cluster — kubecost namespace
+    subgraph kubecost["AKS Cluster - kubecost namespace"]
         FE[Frontend UI<br/>:9090]
-        AGG[(Aggregator<br/>ClickHouse — 64Gi)]
-        LS[(LocalStore<br/>PVC — 32Gi)]
+        AGG[(Aggregator<br/>ClickHouse 64Gi)]
+        LS[(LocalStore<br/>PVC 32Gi)]
         CC[CloudCost<br/>Processor]
         FA[FinOps Agent<br/>Collector]
         NC[NetworkCosts<br/>DaemonSet]
@@ -58,14 +58,14 @@ graph TB
         SA -.->|reads exports| CC
     end
 
-    subgraph AKS Cluster — ecommerce-demo namespace
+    subgraph ecommerce["AKS Cluster - ecommerce-demo namespace"]
         SO[service-orders<br/>100m CPU / 128Mi]
         SP[service-payments<br/>50m CPU / 64Mi]
         NC -.->|tracks egress| SO
         NC -.->|tracks egress| SP
     end
 
-    subgraph AKS Cluster — strimzi namespace
+    subgraph strimzi["AKS Cluster - strimzi namespace"]
         KB[Kafka Brokers<br/>StatefulSet]
         ZK[ZooKeeper<br/>StatefulSet]
         NC -.->|cross-zone traffic| KB
