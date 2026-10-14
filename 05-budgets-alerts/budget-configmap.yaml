@@ -1,0 +1,81 @@
+##
+## Kubecost 3.x Budget Configuration (standalone ConfigMap)
+##
+## This is an alternative to defining budgets in values.yaml under
+## kubecostProductConfigs.budgets. Use this if you want to manage budgets
+## independently of Helm releases (e.g., via GitOps).
+##
+## To use: set kubecostProductConfigs.budgets.configmapName to "kubecost-budgets"
+## in your values.yaml and remove the inline budgetsConfig.
+##
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubecost-budgets
+  namespace: kubecost
+  labels:
+    app.kubernetes.io/part-of: kubecost
+    app.kubernetes.io/component: budgets
+data:
+  budgets.json: |
+    [
+      {
+        "name": "Strimzi Kafka Weekly Budget",
+        "budgetType": "allocations",
+        "interval": "weekly",
+        "intervalDay": 1,
+        "spendLimit": 100,
+        "values": {
+          "namespace": ["strimzi"]
+        },
+        "actions": [
+          {
+            "amount": 0,
+            "percentage": 75,
+            "emails": ["finops-alerts@mydomain.com"]
+          },
+          {
+            "amount": 0,
+            "percentage": 100,
+            "emails": [
+              "finops-alerts@mydomain.com",
+              "data-platform-team@mydomain.com"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Cluster Total Monthly Budget",
+        "budgetType": "allocations",
+        "interval": "monthly",
+        "intervalDay": 1,
+        "spendLimit": 1000,
+        "values": {
+          "cluster": ["aks-kubecost-prod"]
+        },
+        "actions": [
+          {
+            "amount": 0,
+            "percentage": 80,
+            "emails": ["finops-alerts@mydomain.com"]
+          }
+        ]
+      },
+      {
+        "name": "Strimzi Cloud Cost Weekly",
+        "budgetType": "cloud",
+        "interval": "weekly",
+        "intervalDay": 1,
+        "spendLimit": 200,
+        "values": {
+          "label": ["app:kafka"]
+        },
+        "actions": [
+          {
+            "amount": 0,
+            "percentage": 90,
+            "emails": ["finops-alerts@mydomain.com"]
+          }
+        ]
+      }
+    ]

@@ -1,0 +1,209 @@
+##
+## Kubecost 3.x — Production values for AKS
+## Chart: kubecost/kubecost (from https://kubecost.github.io/kubecost/)
+## Chart version: 3.3.0
+##
+## Architecture overview (Kubecost 3.x):
+##   - No Prometheus dependency — finopsagent collects metrics directly
+##   - ClickHouse-backed aggregator for analytics
+##   - Separate cloudCost container for Azure billing integration
+##   - Built-in Gateway API HTTPRoute support
+##   - ConfigMap-based budget definitions
+##
+
+# ---------------------------------------------------------------------------
+# Global Configuration
+# ---------------------------------------------------------------------------
+global:
+  clusterId: "aks-kubecost-prod"
+
+  notifications:
+    alertConfigs:
+      frontendUrl: "http://kubecost.aks.mydomain.com"
+      alerts:
+        # Health monitoring
+        - type: health
+          window: 1h
+
+# ---------------------------------------------------------------------------
+# Frontend (UI)
+# ---------------------------------------------------------------------------
+frontend:
+  enabled: true
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 9090
+  resources:
+    requests:
+      cpu: 10m
+      memory: 55Mi
+
+# ---------------------------------------------------------------------------
+# Gateway API HTTPRoute
+# ---------------------------------------------------------------------------
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: kubecost-gateway
+      namespace: kubecost
+  hostnames:
+    - kubecost.aks.mydomain.com
+  paths: ["/"]
+  pathType: PathPrefix
+
+# ---------------------------------------------------------------------------
+# Cloud Cost Integration (Azure)
+# ---------------------------------------------------------------------------
+# The cloudCost container reads Azure Cost Management exports from a storage
+# account. The secret must exist before Helm install.
+cloudCost:
+  enabled: true
+  cloudIntegrationSecret: "cloud-integration"
+  retention1d: 91
+  refreshRateHours: "6"
+  queryWindowDays: "7"
+  runWindowDays: "3"
+
+# ---------------------------------------------------------------------------
+# Local Store (agent ↔ aggregator communication)
+# ---------------------------------------------------------------------------
+localStore:
+  enabled: true
+  retention10m: 36
+  retention1h: 49
+  retention1d: 15
+  persistentVolume:
+    enabled: true
+    size: 32Gi
+    storageClass: "managed-csi"
+
+# ---------------------------------------------------------------------------
+# Aggregator (ClickHouse analytics engine)
+# ---------------------------------------------------------------------------
+aggregator:
+  enabled: true
+  replicas: 1
+  retention1d: 91
+  retention1h: 49
+  retention10m: 0
+
+  aggregatorDbStorage:
+    storageClass: "managed-csi"
+    storageRequest: 64Gi
+
+  persistentConfigsStorage:
+    storageClass: "managed-csi"
+    storageRequest: 1Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 3Gi
+
+# ---------------------------------------------------------------------------
+# FinOps Agent (metrics collector — replaces Prometheus)
+# ---------------------------------------------------------------------------
+finopsagent:
+  enabled: true
+  agent:
+    collectorDataSource:
+      enabled: true
+      scrapeInterval: 60s
+      retention10m: 6
+      retention1h: 3
+      retention1d: 2
+    exporter:
+      emissionInterval: 1m
+
+# ---------------------------------------------------------------------------
+# Network Costs DaemonSet
+# ---------------------------------------------------------------------------
+# Tracks per-pod network egress — critical for attributing Kafka cross-zone
+# replication and inter-broker traffic costs accurately.
+networkCosts:
+  enabled: true
+  trafficLogging: true
+  logLevel: info
+  port: 3001
+  resources:
+    requests:
+      cpu: 50m
+      memory: 20Mi
+    limits:
+      cpu: 500m
+  config:
+    destinations:
+      # For multi-AZ AKS clusters: remove 10.0.0.0/8 from in-zone so that
+      # cross-zone traffic between Kafka brokers is classified as in-region
+      # (cross-zone) rather than in-zone. This is essential for accurate
+      # network cost attribution of Strimzi Kafka inter-broker replication.
+      in-zone:
+        - "127.0.0.0/8"
+        - "169.254.0.0/16"
+        - "172.16.0.0/12"
+        - "192.168.0.0/16"
+      in-region: []
+      cross-region: []
+      internet: []
+    services:
+      azure-cloud-services: true
+
+# ---------------------------------------------------------------------------
+# Kubecost Product Configuration
+# ---------------------------------------------------------------------------
+kubecostProductConfigs:
+  clusterProfile: production
+  currencyCode: "USD"
+  shareTenancyCosts: true
+  sharedNamespaces: "kube-system\\,kubecost"
+
+  # FinOps label mapping — maps K8s labels to Kubecost allocation dimensions
+  labelMappingConfigs:
+    owner_label: "owner"
+    team_label: "team"
+    department_label: "department"
+    product_label: "app"
+    environment_label: "environment"
+
+  # Budget: warn if strimzi namespace exceeds $100/week
+  budgets:
+    budgetsConfig:
+      - name: "Strimzi Kafka Weekly Budget"
+        budgetType: "allocations"
+        interval: "weekly"
+        intervalDay: 1
+        spendLimit: 100
+        values:
+          namespace:
+            - "strimzi"
+        actions:
+          - amount: 0
+            percentage: 75
+            emails:
+              - "finops-alerts@mydomain.com"
+          - amount: 0
+            percentage: 100
+            emails:
+              - "finops-alerts@mydomain.com"
+              - "data-platform-team@mydomain.com"
+
+      - name: "Cluster Total Monthly Budget"
+        budgetType: "allocations"
+        interval: "monthly"
+        intervalDay: 1
+        spendLimit: 1000
+        values:
+          cluster:
+            - "aks-kubecost-prod"
+        actions:
+          - amount: 0
+            percentage: 80
+            emails:
+              - "finops-alerts@mydomain.com"
+
+# ---------------------------------------------------------------------------
+# Service Account
+# ---------------------------------------------------------------------------
+serviceAccount:
+  create: true

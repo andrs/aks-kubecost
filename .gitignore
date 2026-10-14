@@ -1,0 +1,91 @@
+# -----------------------------------------------------------------------
+# Secrets & credentials — NEVER commit these
+# -----------------------------------------------------------------------
+
+# Azure Service Principal credentials written by 01-create-azure-sp.sh
+/tmp/kubecost-azure-credentials.env
+kubecost-azure-credentials.env
+*.env
+*.env.*
+!*.env.example
+!*.env.template
+
+# Kubernetes secret manifests with real values
+# (azure-service-key-secret.yaml is a template with placeholders — safe to commit)
+*-secret-populated.yaml
+*-credentials.yaml
+cloud-integration-secret.yaml
+
+# kubeconfig files (avoid accidentally committing cluster access)
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+.kube/
+
+# Azure CLI / Terraform state that may contain credentials
+.azure/
+terraform.tfstate
+terraform.tfstate.*
+.terraform/
+*.tfvars
+!*.tfvars.example
+
+# ACR / Docker credentials
+.docker/config.json
+docker-credential-*
+
+# TLS certificates and private keys
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.cer
+
+# SSH keys
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+
+# Generic secret patterns
+*secret*
+*password*
+*credential*
+!*secret*.yaml.example
+!*secret*.template
+
+# -----------------------------------------------------------------------
+# Build & runtime artifacts
+# -----------------------------------------------------------------------
+
+# Helm chart downloads / local cache
+charts/
+*.tgz
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/

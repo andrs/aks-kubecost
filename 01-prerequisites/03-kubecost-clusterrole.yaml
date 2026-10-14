@@ -1,0 +1,98 @@
+##
+## Kubecost 3.x — Missing ClusterRole for the main 'kubecost' ServiceAccount.
+##
+## The Helm chart ships only a namespace-scoped Role for the kubecost SA,
+## but the aggregator, cloud-cost, and forecasting components need cluster-wide
+## read access to nodes, PersistentVolumes, namespaces, StorageClasses, etc.
+## Without this, the UI shows permission errors on Savings, Assets, and
+## cluster-controller features.
+##
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubecost-main
+  labels:
+    app: kubecost
+    app.kubernetes.io/name: kubecost
+    app.kubernetes.io/instance: kubecost
+    app.kubernetes.io/managed-by: Helm
+rules:
+  # Cluster-wide infrastructure — required for Asset pricing (nodes, PVs, LBs)
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/proxy
+      - persistentvolumes
+      - namespaces
+      - services
+      - endpoints
+      - replicationcontrollers
+      - resourcequotas
+    verbs: ["get", "list", "watch"]
+
+  # Storage — StorageClass pricing lookup
+  - apiGroups: ["storage.k8s.io"]
+    resources:
+      - storageclasses
+      - volumeattachments
+    verbs: ["get", "list", "watch"]
+
+  # Workloads — for Savings / right-sizing recommendations
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list", "watch"]
+
+  # Batch workloads
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+
+  # Autoscaling — for Savings recommendations
+  - apiGroups: ["autoscaling"]
+    resources:
+      - horizontalpodautoscalers
+    verbs: ["get", "list", "watch"]
+
+  # Policy — for network cost attribution
+  - apiGroups: ["policy"]
+    resources:
+      - poddisruptionbudgets
+    verbs: ["get", "list", "watch"]
+
+  # Metrics API — required for real-time efficiency data
+  - apiGroups: ["metrics.k8s.io"]
+    resources:
+      - nodes
+      - pods
+    verbs: ["get", "list"]
+
+  # Gateway API — required if using HTTPRoute exposure
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources:
+      - gateways
+      - httproutes
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubecost-main
+  labels:
+    app: kubecost
+    app.kubernetes.io/name: kubecost
+    app.kubernetes.io/instance: kubecost
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubecost-main
+subjects:
+  - kind: ServiceAccount
+    name: kubecost
+    namespace: kubecost

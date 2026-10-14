@@ -1,0 +1,53 @@
+##
+## Gateway for Kubecost — uses Envoy Gateway (GatewayClass: eg)
+##
+## If you already have a shared Gateway in another namespace,
+## skip this file and update httpRoute.parentRefs in values.yaml
+## to reference your existing Gateway.
+##
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kubecost-gateway
+  namespace: kubecost
+  labels:
+    app.kubernetes.io/part-of: kubecost
+spec:
+  gatewayClassName: eg
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: kubecost.aks.mydomain.com
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+##
+## HTTPRoute is managed by the Helm chart (httpRoute section in values.yaml).
+## This file provides the Gateway resource that the chart's HTTPRoute attaches to.
+##
+## If you need a standalone HTTPRoute (e.g., for a custom path or TLS termination),
+## uncomment and use the manifest below instead of the chart's built-in httpRoute.
+##
+# apiVersion: gateway.networking.k8s.io/v1
+# kind: HTTPRoute
+# metadata:
+#   name: kubecost-route
+#   namespace: kubecost
+#   labels:
+#     app.kubernetes.io/part-of: kubecost
+# spec:
+#   parentRefs:
+#     - name: kubecost-gateway
+#       namespace: kubecost
+#   hostnames:
+#     - kubecost.aks.mydomain.com
+#   rules:
+#     - matches:
+#         - path:
+#             type: PathPrefix
+#             value: /
+#       backendRefs:
+#         - name: kubecost-frontend
+#           port: 9090

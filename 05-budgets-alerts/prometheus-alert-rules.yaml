@@ -1,0 +1,57 @@
+##
+## Prometheus AlertManager rules for Kubecost cost thresholds.
+##
+## These are standard PrometheusRule CRDs. They work if you have a Prometheus
+## Operator (e.g., kube-prometheus-stack) watching for PrometheusRule resources.
+##
+## For Kubecost 3.x (which does not bundle Prometheus), these rules require
+## an external Prometheus + Alertmanager that scrapes the Kubecost finops-agent
+## metrics endpoint.
+##
+## If you're relying solely on Kubecost's built-in alerting (configured in
+## values.yaml under global.notifications), you don't need this file.
+##
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubecost-strimzi-cost-alerts
+  namespace: kubecost
+  labels:
+    app.kubernetes.io/part-of: kubecost
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: kubecost.strimzi.costs
+      rules:
+        - alert: StrimziNamespaceCostHigh
+          expr: |
+            sum(
+              kubecost_allocation_cost{namespace="strimzi"}
+            ) > 14.28
+          for: 1h
+          labels:
+            severity: warning
+            team: data-platform
+          annotations:
+            summary: "Strimzi namespace daily cost exceeds $14.28 (=$100/week)"
+            description: >
+              The accumulated daily cost for the strimzi namespace is
+              {{ $value | printf "%.2f" }} USD, which exceeds the daily
+              equivalent of the $100/week budget threshold.
+
+        - alert: StrimziNetworkEgressHigh
+          expr: |
+            sum(rate(
+              kubecost_network_costs_total{namespace="strimzi", traffic_direction="egress"}
+            [1h])) * 3600 * 24 > 5
+          for: 30m
+          labels:
+            severity: warning
+            team: data-platform
+          annotations:
+            summary: "Strimzi network egress cost projected above $5/day"
+            description: >
+              Network egress from the strimzi namespace is projected at
+              {{ $value | printf "%.2f" }} USD/day. Check for excessive
+              cross-zone Kafka replication traffic.
